@@ -34,7 +34,7 @@ export default async function CustomersIndex() {
         status={`${customers.length} клиенти`}
         action={{ label: "Нов клиент", href: "/customers/new" }}
       />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Клиенти"
           subtitle="Списък с всички клиенти на сервиза"
@@ -52,8 +52,8 @@ export default async function CustomersIndex() {
             </Link>
           </div>
         ) : (
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <th className="px-6 py-3">Клиент</th>

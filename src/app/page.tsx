@@ -53,7 +53,7 @@ export default async function Dashboard() {
   return (
     <>
       <TopBar status="Velo CRM" />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <div className="mb-6">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
             {greetingForNow()}

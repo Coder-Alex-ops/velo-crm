@@ -44,7 +44,7 @@ export default async function EditCustomer({
   return (
     <>
       <TopBar status={`Клиент · ${customer.firstName} ${customer.lastName}`} />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title={`${customer.firstName} ${customer.lastName}`}
           subtitle={`Добавен на ${formatDate(customer.createdAt)}`}

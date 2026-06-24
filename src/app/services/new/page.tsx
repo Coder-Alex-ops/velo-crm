@@ -15,7 +15,7 @@ export default async function NewService({
   return (
     <>
       <TopBar status="Нов сервизен запис" />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Нов сервиз"
           subtitle="Заведете нов ремонт или сервиз"

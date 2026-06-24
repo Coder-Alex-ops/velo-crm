@@ -9,7 +9,7 @@ export default function NewCustomer() {
   return (
     <>
       <TopBar status="Нов клиент" />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Нов клиент"
           subtitle="Добавяне на клиент в системата"

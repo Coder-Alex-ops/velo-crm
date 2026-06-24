@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SubmitButton } from "@/components/SubmitButton";
 import type { Customer } from "@/lib/types";
 
 export function CustomerForm({
@@ -15,7 +16,7 @@ export function CustomerForm({
   return (
     <form action={action} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
-        <div className="card p-6">
+        <div className="card p-4 sm:p-6">
           <h3 className="mb-4 text-sm font-semibold text-gray-900">
             Основни данни
           </h3>
@@ -47,6 +48,8 @@ export function CustomerForm({
               <label className="label">Телефон</label>
               <input
                 name="phone"
+                type="tel"
+                inputMode="tel"
                 defaultValue={customer?.phone}
                 placeholder="+359 88 123 4567"
                 className="input"
@@ -57,6 +60,7 @@ export function CustomerForm({
               <input
                 name="email"
                 type="email"
+                inputMode="email"
                 defaultValue={customer?.email}
                 placeholder="ivan@example.com"
                 className="input"
@@ -65,7 +69,7 @@ export function CustomerForm({
           </div>
         </div>
 
-        <div className="card p-6">
+        <div className="card p-4 sm:p-6">
           <h3 className="mb-4 text-sm font-semibold text-gray-900">Адрес</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -89,7 +93,7 @@ export function CustomerForm({
           </div>
         </div>
 
-        <div className="card p-6">
+        <div className="card p-4 sm:p-6">
           <label className="label">Бележки за клиента</label>
           <textarea
             name="notes"
@@ -102,11 +106,9 @@ export function CustomerForm({
       </div>
 
       <div className="space-y-4">
-        <div className="card p-6">
+        <div className="card sticky top-20 p-4 sm:p-6">
           <div className="flex flex-col gap-2">
-            <button type="submit" className="btn-primary">
-              {submitLabel}
-            </button>
+            <SubmitButton>{submitLabel}</SubmitButton>
             <Link href="/customers" className="btn-secondary">
               Отказ
             </Link>

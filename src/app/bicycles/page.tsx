@@ -25,7 +25,7 @@ export default async function BicyclesIndex() {
         status={`${bicycles.length} велосипеда`}
         action={{ label: "Нов велосипед", href: "/bicycles/new" }}
       />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Велосипеди"
           subtitle="Всички велосипеди, заведени в системата"
@@ -43,8 +43,8 @@ export default async function BicyclesIndex() {
             </Link>
           </div>
         ) : (
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full min-w-[820px] text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <th className="px-6 py-3">Велосипед</th>

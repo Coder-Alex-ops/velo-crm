@@ -40,7 +40,7 @@ export default async function EditBicycle({
   return (
     <>
       <TopBar status={`Велосипед · ${bicycleLabel(bicycle)}`} />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title={bicycleLabel(bicycle)}
           subtitle={`Добавен на ${formatDate(bicycle.createdAt)}`}

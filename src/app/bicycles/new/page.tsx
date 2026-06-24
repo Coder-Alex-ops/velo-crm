@@ -15,7 +15,7 @@ export default async function NewBicycle({
   return (
     <>
       <TopBar status="Нов велосипед" />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Нов велосипед"
           subtitle="Заведете велосипед на клиент"

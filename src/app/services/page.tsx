@@ -52,7 +52,7 @@ export default async function ServicesIndex({
         status={`${services.length} записа`}
         action={{ label: "Нов сервиз", href: "/services/new" }}
       />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Сервизни записи"
           subtitle="Всички направени и текущи ремонти"
@@ -100,8 +100,8 @@ export default async function ServicesIndex({
             </Link>
           </div>
         ) : (
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <th className="px-6 py-3">Работа</th>

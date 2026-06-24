@@ -22,7 +22,7 @@ export default async function EditService({
   return (
     <>
       <TopBar status={`Сервиз · ${record.id}`} />
-      <div className="px-8 py-6">
+      <div className="page-container">
         <PageHeader
           title="Сервизен запис"
           subtitle={`ID ${record.id}`}

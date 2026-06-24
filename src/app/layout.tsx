@@ -1,10 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Sidebar } from "@/components/Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Velo CRM",
   description: "CRM система за велосипеден сервиз",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -15,10 +20,8 @@ export default function RootLayout({
   return (
     <html lang="bg">
       <body className="min-h-screen text-sm antialiased">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
+        <Sidebar />
+        <main className="lg:pl-64">{children}</main>
       </body>
     </html>
   );
