@@ -7,6 +7,7 @@ const nextConfig = {
         "localhost:3000",
         "*.app.github.dev",
         "*.github.dev",
+        "*.netlify.app",
       ],
     },
   },
