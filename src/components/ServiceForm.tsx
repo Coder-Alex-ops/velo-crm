@@ -509,10 +509,8 @@ export function ServiceForm({
               <span>{formatEur(Math.abs(balance))}</span>
             </div>
           </div>
-        </div>
 
-        <div className="card p-4 sm:p-6">
-          <div className="flex flex-col gap-2">
+          <div className="mt-4 flex flex-col gap-2">
             <SubmitButton>{submitLabel}</SubmitButton>
             <Link href="/services" className="btn-secondary">
               Отказ
