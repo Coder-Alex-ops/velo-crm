@@ -1,7 +1,15 @@
 export type UserRole = "admin" | "mechanic";
 
+export type Organization = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type User = {
   id: string;
+  organizationId: string;
   email: string;
   name: string;
   role: UserRole;

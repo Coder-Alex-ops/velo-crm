@@ -33,9 +33,9 @@ function readBase(formData: FormData) {
 }
 
 export async function createCustomer(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
-  const created = await createCustomerRow(data);
+  const created = await createCustomerRow({ ...data, organizationId: user.organizationId });
 
   revalidatePath("/");
   revalidatePath("/customers");
@@ -43,9 +43,9 @@ export async function createCustomer(formData: FormData) {
 }
 
 export async function updateCustomer(id: string, formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
-  await updateCustomerRow(id, data);
+  await updateCustomerRow(user.organizationId, id, data);
 
   revalidatePath("/");
   revalidatePath("/customers");
@@ -54,8 +54,8 @@ export async function updateCustomer(id: string, formData: FormData) {
 }
 
 export async function deleteCustomer(id: string) {
-  await requireUser();
-  await deleteCustomerRow(id);
+  const user = await requireUser();
+  await deleteCustomerRow(user.organizationId, id);
   revalidatePath("/");
   revalidatePath("/customers");
   revalidatePath("/bicycles");

@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { getProduct, listStockMovementsByProduct } from "@/lib/db";
 import { formatEur } from "@/lib/crm";
 import { formatDateTime } from "@/lib/format";
+import { requireUser } from "@/lib/session";
 import { updateProduct, adjustStock } from "../actions";
 import { DeleteProductButton } from "../DeleteButton";
 
@@ -24,10 +25,11 @@ export default async function EditProduct({
 }: {
   params: { id: string };
 }) {
-  const product = await getProduct(params.id);
+  const user = await requireUser();
+  const product = await getProduct(user.organizationId, params.id);
   if (!product) notFound();
 
-  const movements = await listStockMovementsByProduct(params.id);
+  const movements = await listStockMovementsByProduct(user.organizationId, params.id);
   const action = updateProduct.bind(null, product.id);
   const adjustAction = adjustStock.bind(null, product.id);
   const isLow = product.quantity <= product.lowStockThreshold;

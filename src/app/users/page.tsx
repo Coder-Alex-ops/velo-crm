@@ -15,7 +15,7 @@ export default async function UsersPage() {
   const me = await requireUser();
   if (me.role !== "admin") redirect("/");
 
-  const users = await listUsers();
+  const users = await listUsers(me.organizationId);
 
   return (
     <>

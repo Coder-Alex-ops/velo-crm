@@ -18,6 +18,7 @@ import {
   serviceStatusMeta,
   serviceTotal,
 } from "@/lib/crm";
+import { requireUser } from "@/lib/session";
 import { updateBicycle } from "../actions";
 import { DeleteBicycleButton } from "../DeleteButton";
 
@@ -28,12 +29,13 @@ export default async function EditBicycle({
 }: {
   params: { id: string };
 }) {
-  const bicycle = await getBicycle(params.id);
+  const user = await requireUser();
+  const bicycle = await getBicycle(user.organizationId, params.id);
   if (!bicycle) notFound();
 
   const [customers, services] = await Promise.all([
-    listCustomers(),
-    listServiceRecordsByBicycle(bicycle.id),
+    listCustomers(user.organizationId),
+    listServiceRecordsByBicycle(user.organizationId, bicycle.id),
   ]);
 
   const action = updateBicycle.bind(null, bicycle.id);

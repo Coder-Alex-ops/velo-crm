@@ -3,6 +3,7 @@ import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import { ServiceForm } from "@/components/ServiceForm";
 import { getServiceRecord, listBicycles, listCustomers } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 import { updateServiceRecord } from "../actions";
 import { DeleteServiceButton } from "../DeleteButton";
 
@@ -13,12 +14,13 @@ export default async function EditService({
 }: {
   params: { id: string };
 }) {
-  const record = await getServiceRecord(params.id);
+  const user = await requireUser();
+  const record = await getServiceRecord(user.organizationId, params.id);
   if (!record) notFound();
 
   const [customers, bicycles] = await Promise.all([
-    listCustomers(),
-    listBicycles(),
+    listCustomers(user.organizationId),
+    listBicycles(user.organizationId),
   ]);
 
   const action = updateServiceRecord.bind(null, record.id);

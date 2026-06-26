@@ -3,6 +3,7 @@ import postgres from "postgres";
 import type {
   Bicycle,
   Customer,
+  Organization,
   PaymentStatus,
   Product,
   ProductCategory,
@@ -40,8 +41,16 @@ if (process.env.NODE_ENV !== "production") {
   global.__velo_sql = sql;
 }
 
+type OrganizationRow = {
+  id: string;
+  name: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
 type UserRow = {
   id: string;
+  organization_id: string;
   email: string;
   name: string;
   role: UserRole;
@@ -53,6 +62,7 @@ type UserWithHashRow = UserRow & { password_hash: string };
 
 type CustomerRow = {
   id: string;
+  organization_id: string;
   first_name: string;
   last_name: string;
   phone: string | null;
@@ -66,6 +76,7 @@ type CustomerRow = {
 
 type BicycleRow = {
   id: string;
+  organization_id: string;
   customer_id: string;
   brand: string;
   model: string;
@@ -82,6 +93,7 @@ type BicycleRow = {
 
 type ServiceRow = {
   id: string;
+  organization_id: string;
   bicycle_id: string;
   customer_id: string;
   received_date: Date;
@@ -103,9 +115,19 @@ type ServiceRow = {
 const iso = (d: Date) => d.toISOString();
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
+export function mapOrganization(row: OrganizationRow): Organization {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
 export function mapUser(row: UserRow): User {
   return {
     id: row.id,
+    organizationId: row.organization_id,
     email: row.email,
     name: row.name,
     role: row.role,
@@ -169,13 +191,31 @@ export function mapService(row: ServiceRow): ServiceRecord {
   };
 }
 
+// ---------- Organizations ----------
+
+export async function createOrganization(name: string): Promise<Organization> {
+  const rows = await sql<OrganizationRow[]>`
+    insert into velo_organizations (name)
+    values (${name})
+    returning *
+  `;
+  return mapOrganization(rows[0]);
+}
+
+export async function getOrganization(id: string): Promise<Organization | null> {
+  const rows = await sql<OrganizationRow[]>`
+    select * from velo_organizations where id = ${id} limit 1
+  `;
+  return rows[0] ? mapOrganization(rows[0]) : null;
+}
+
 // ---------- Users ----------
 
 export async function findUserByEmail(
   email: string,
 ): Promise<(User & { passwordHash: string }) | null> {
   const rows = await sql<UserWithHashRow[]>`
-    select id, email, name, role, password_hash, created_at, updated_at
+    select id, organization_id, email, name, role, password_hash, created_at, updated_at
     from velo_users
     where lower(email) = lower(${email})
     limit 1
@@ -187,7 +227,7 @@ export async function findUserByEmail(
 
 export async function findUserById(id: string): Promise<User | null> {
   const rows = await sql<UserRow[]>`
-    select id, email, name, role, created_at, updated_at
+    select id, organization_id, email, name, role, created_at, updated_at
     from velo_users
     where id = ${id}
     limit 1
@@ -195,25 +235,27 @@ export async function findUserById(id: string): Promise<User | null> {
   return rows[0] ? mapUser(rows[0]) : null;
 }
 
-export async function listUsers(): Promise<User[]> {
+export async function listUsers(orgId: string): Promise<User[]> {
   const rows = await sql<UserRow[]>`
-    select id, email, name, role, created_at, updated_at
+    select id, organization_id, email, name, role, created_at, updated_at
     from velo_users
+    where organization_id = ${orgId}
     order by name
   `;
   return rows.map(mapUser);
 }
 
 export async function createUser(input: {
+  organizationId: string;
   email: string;
   passwordHash: string;
   name: string;
   role: UserRole;
 }): Promise<User> {
   const rows = await sql<UserRow[]>`
-    insert into velo_users (email, password_hash, name, role)
-    values (${input.email}, ${input.passwordHash}, ${input.name}, ${input.role})
-    returning id, email, name, role, created_at, updated_at
+    insert into velo_users (organization_id, email, password_hash, name, role)
+    values (${input.organizationId}, ${input.email}, ${input.passwordHash}, ${input.name}, ${input.role})
+    returning id, organization_id, email, name, role, created_at, updated_at
   `;
   return mapUser(rows[0]);
 }
@@ -231,21 +273,26 @@ export async function deleteUser(id: string): Promise<void> {
 
 // ---------- Customers ----------
 
-export async function listCustomers(): Promise<Customer[]> {
+export async function listCustomers(orgId: string): Promise<Customer[]> {
   const rows = await sql<CustomerRow[]>`
-    select * from velo_customers order by last_name, first_name
+    select * from velo_customers
+    where organization_id = ${orgId}
+    order by last_name, first_name
   `;
   return rows.map(mapCustomer);
 }
 
-export async function getCustomer(id: string): Promise<Customer | null> {
+export async function getCustomer(orgId: string, id: string): Promise<Customer | null> {
   const rows = await sql<CustomerRow[]>`
-    select * from velo_customers where id = ${id} limit 1
+    select * from velo_customers
+    where organization_id = ${orgId} and id = ${id}
+    limit 1
   `;
   return rows[0] ? mapCustomer(rows[0]) : null;
 }
 
 export async function createCustomerRow(input: {
+  organizationId: string;
   firstName: string;
   lastName: string;
   phone?: string;
@@ -255,8 +302,9 @@ export async function createCustomerRow(input: {
   notes?: string;
 }): Promise<Customer> {
   const rows = await sql<CustomerRow[]>`
-    insert into velo_customers (first_name, last_name, phone, email, address, city, notes)
+    insert into velo_customers (organization_id, first_name, last_name, phone, email, address, city, notes)
     values (
+      ${input.organizationId},
       ${input.firstName},
       ${input.lastName},
       ${input.phone ?? null},
@@ -271,6 +319,7 @@ export async function createCustomerRow(input: {
 }
 
 export async function updateCustomerRow(
+  orgId: string,
   id: string,
   input: {
     firstName: string;
@@ -291,42 +340,50 @@ export async function updateCustomerRow(
       address = ${input.address ?? null},
       city = ${input.city ?? null},
       notes = ${input.notes ?? null}
-    where id = ${id}
+    where organization_id = ${orgId} and id = ${id}
     returning *
   `;
   return rows[0] ? mapCustomer(rows[0]) : null;
 }
 
-export async function deleteCustomerRow(id: string): Promise<void> {
-  await sql`delete from velo_customers where id = ${id}`;
+export async function deleteCustomerRow(orgId: string, id: string): Promise<void> {
+  await sql`delete from velo_customers where organization_id = ${orgId} and id = ${id}`;
 }
 
 // ---------- Bicycles ----------
 
-export async function listBicycles(): Promise<Bicycle[]> {
+export async function listBicycles(orgId: string): Promise<Bicycle[]> {
   const rows = await sql<BicycleRow[]>`
-    select * from velo_bicycles order by brand, model
+    select * from velo_bicycles
+    where organization_id = ${orgId}
+    order by brand, model
   `;
   return rows.map(mapBicycle);
 }
 
 export async function listBicyclesByCustomer(
+  orgId: string,
   customerId: string,
 ): Promise<Bicycle[]> {
   const rows = await sql<BicycleRow[]>`
-    select * from velo_bicycles where customer_id = ${customerId} order by brand, model
+    select * from velo_bicycles
+    where organization_id = ${orgId} and customer_id = ${customerId}
+    order by brand, model
   `;
   return rows.map(mapBicycle);
 }
 
-export async function getBicycle(id: string): Promise<Bicycle | null> {
+export async function getBicycle(orgId: string, id: string): Promise<Bicycle | null> {
   const rows = await sql<BicycleRow[]>`
-    select * from velo_bicycles where id = ${id} limit 1
+    select * from velo_bicycles
+    where organization_id = ${orgId} and id = ${id}
+    limit 1
   `;
   return rows[0] ? mapBicycle(rows[0]) : null;
 }
 
 export async function createBicycleRow(input: {
+  organizationId: string;
   customerId: string;
   brand: string;
   model: string;
@@ -340,9 +397,10 @@ export async function createBicycleRow(input: {
 }): Promise<Bicycle> {
   const rows = await sql<BicycleRow[]>`
     insert into velo_bicycles (
-      customer_id, brand, model, year, type, color,
+      organization_id, customer_id, brand, model, year, type, color,
       serial_number, frame_size, wheel_size, notes
     ) values (
+      ${input.organizationId},
       ${input.customerId},
       ${input.brand},
       ${input.model},
@@ -360,6 +418,7 @@ export async function createBicycleRow(input: {
 }
 
 export async function updateBicycleRow(
+  orgId: string,
   id: string,
   input: {
     customerId: string;
@@ -386,68 +445,77 @@ export async function updateBicycleRow(
       frame_size = ${input.frameSize ?? null},
       wheel_size = ${input.wheelSize ?? null},
       notes = ${input.notes ?? null}
-    where id = ${id}
+    where organization_id = ${orgId} and id = ${id}
     returning *
   `;
   return rows[0] ? mapBicycle(rows[0]) : null;
 }
 
-export async function deleteBicycleRow(id: string): Promise<void> {
-  await sql`delete from velo_bicycles where id = ${id}`;
+export async function deleteBicycleRow(orgId: string, id: string): Promise<void> {
+  await sql`delete from velo_bicycles where organization_id = ${orgId} and id = ${id}`;
 }
 
 // ---------- Service Records ----------
 
-export async function listServiceRecords(): Promise<ServiceRecord[]> {
+export async function listServiceRecords(orgId: string): Promise<ServiceRecord[]> {
   const rows = await sql<ServiceRow[]>`
-    select * from velo_service_records order by received_date desc, created_at desc
+    select * from velo_service_records
+    where organization_id = ${orgId}
+    order by received_date desc, created_at desc
   `;
   return rows.map(mapService);
 }
 
 export async function listServiceRecordsByStatus(
+  orgId: string,
   status: ServiceStatus,
 ): Promise<ServiceRecord[]> {
   const rows = await sql<ServiceRow[]>`
     select * from velo_service_records
-    where status = ${status}
+    where organization_id = ${orgId} and status = ${status}
     order by received_date desc, created_at desc
   `;
   return rows.map(mapService);
 }
 
 export async function listServiceRecordsByCustomer(
+  orgId: string,
   customerId: string,
 ): Promise<ServiceRecord[]> {
   const rows = await sql<ServiceRow[]>`
     select * from velo_service_records
-    where customer_id = ${customerId}
+    where organization_id = ${orgId} and customer_id = ${customerId}
     order by received_date desc, created_at desc
   `;
   return rows.map(mapService);
 }
 
 export async function listServiceRecordsByBicycle(
+  orgId: string,
   bicycleId: string,
 ): Promise<ServiceRecord[]> {
   const rows = await sql<ServiceRow[]>`
     select * from velo_service_records
-    where bicycle_id = ${bicycleId}
+    where organization_id = ${orgId} and bicycle_id = ${bicycleId}
     order by received_date desc, created_at desc
   `;
   return rows.map(mapService);
 }
 
 export async function getServiceRecord(
+  orgId: string,
   id: string,
 ): Promise<ServiceRecord | null> {
   const rows = await sql<ServiceRow[]>`
-    select * from velo_service_records where id = ${id} limit 1
+    select * from velo_service_records
+    where organization_id = ${orgId} and id = ${id}
+    limit 1
   `;
   return rows[0] ? mapService(rows[0]) : null;
 }
 
 export async function createServiceRecordRow(input: {
+  organizationId: string;
   bicycleId: string;
   customerId: string;
   receivedDate: string;
@@ -465,10 +533,11 @@ export async function createServiceRecordRow(input: {
 }): Promise<ServiceRecord> {
   const rows = await sql<ServiceRow[]>`
     insert into velo_service_records (
-      bicycle_id, customer_id, received_date, completed_date,
+      organization_id, bicycle_id, customer_id, received_date, completed_date,
       work_description, parts_list, parts_cost, labor_cost,
       discount, paid_amount, payment_status, status, technician, notes
     ) values (
+      ${input.organizationId},
       ${input.bicycleId},
       ${input.customerId},
       ${input.receivedDate},
@@ -490,6 +559,7 @@ export async function createServiceRecordRow(input: {
 }
 
 export async function updateServiceRecordRow(
+  orgId: string,
   id: string,
   input: {
     bicycleId: string;
@@ -524,29 +594,19 @@ export async function updateServiceRecordRow(
       status = ${input.status},
       technician = ${input.technician ?? null},
       notes = ${input.notes ?? null}
-    where id = ${id}
+    where organization_id = ${orgId} and id = ${id}
     returning *
   `;
   return rows[0] ? mapService(rows[0]) : null;
 }
 
-export async function deleteServiceRecordRow(id: string): Promise<void> {
-  await sql`delete from velo_service_records where id = ${id}`;
+export async function deleteServiceRecordRow(orgId: string, id: string): Promise<void> {
+  await sql`delete from velo_service_records where organization_id = ${orgId} and id = ${id}`;
 }
 
 // ---------- Dashboard helpers ----------
 
-export async function countCustomers(): Promise<number> {
-  const rows = await sql<{ count: string }[]>`select count(*) from velo_customers`;
-  return Number(rows[0].count);
-}
-
-export async function countBicycles(): Promise<number> {
-  const rows = await sql<{ count: string }[]>`select count(*) from velo_bicycles`;
-  return Number(rows[0].count);
-}
-
-export async function getDashboardStats(): Promise<{
+export async function getDashboardStats(orgId: string): Promise<{
   totalCustomers: number;
   totalBicycles: number;
   totalServices: number;
@@ -575,22 +635,23 @@ export async function getDashboardStats(): Promise<{
     }[]
   >`
     select
-      (select count(*) from velo_customers) as total_customers,
-      (select count(*) from velo_bicycles) as total_bicycles,
-      (select count(*) from velo_service_records) as total_services,
+      (select count(*) from velo_customers where organization_id = ${orgId}) as total_customers,
+      (select count(*) from velo_bicycles where organization_id = ${orgId}) as total_bicycles,
+      (select count(*) from velo_service_records where organization_id = ${orgId}) as total_services,
       (select count(*) from velo_service_records
-        where status not in ('delivered', 'cancelled')) as open_services,
+        where organization_id = ${orgId} and status not in ('delivered', 'cancelled')) as open_services,
       coalesce((
         select sum(greatest(0, parts_cost + labor_cost - discount))
         from velo_service_records
-        where received_date >= ${monthStart}
+        where organization_id = ${orgId} and received_date >= ${monthStart}
       ), 0) as month_revenue,
       coalesce((
         select sum(greatest(0, greatest(0, parts_cost + labor_cost - discount) - paid_amount))
         from velo_service_records
+        where organization_id = ${orgId}
       ), 0) as outstanding,
       (select count(*) from velo_products
-        where quantity <= low_stock_threshold) as low_stock_count
+        where organization_id = ${orgId} and quantity <= low_stock_threshold) as low_stock_count
   `;
 
   return {
@@ -641,6 +702,7 @@ function mapServiceWithDetails(row: ServiceWithDetailsRow): ServiceWithDetails {
 }
 
 export async function listServicesWithDetails(
+  orgId: string,
   status?: ServiceStatus,
   limit?: number,
 ): Promise<ServiceWithDetails[]> {
@@ -655,7 +717,8 @@ export async function listServicesWithDetails(
     from velo_service_records s
     left join velo_customers c on c.id = s.customer_id
     left join velo_bicycles  b on b.id = s.bicycle_id
-    ${status ? sql`where s.status = ${status}` : sql``}
+    where s.organization_id = ${orgId}
+    ${status ? sql`and s.status = ${status}` : sql``}
     order by s.received_date desc, s.created_at desc
     ${limit != null ? sql`limit ${limit}` : sql``}
   `;
@@ -671,11 +734,12 @@ export type BicycleWithCustomer = Bicycle & {
   customerName: string;
 };
 
-export async function listBicyclesWithCustomer(): Promise<BicycleWithCustomer[]> {
+export async function listBicyclesWithCustomer(orgId: string): Promise<BicycleWithCustomer[]> {
   const rows = await sql<BicycleWithCustomerRow[]>`
     select b.*, c.first_name as c_first, c.last_name as c_last
     from velo_bicycles b
     left join velo_customers c on c.id = b.customer_id
+    where b.organization_id = ${orgId}
     order by b.brand, b.model
   `;
   return rows.map((row) => ({
@@ -684,30 +748,42 @@ export async function listBicyclesWithCustomer(): Promise<BicycleWithCustomer[]>
   }));
 }
 
-export async function countBicyclesByCustomer(): Promise<Map<string, number>> {
+export async function countBicyclesByCustomer(orgId: string): Promise<Map<string, number>> {
   const rows = await sql<{ customer_id: string; count: string }[]>`
-    select customer_id, count(*) as count from velo_bicycles group by customer_id
+    select customer_id, count(*) as count
+    from velo_bicycles
+    where organization_id = ${orgId}
+    group by customer_id
   `;
   return new Map(rows.map((r) => [r.customer_id, Number(r.count)]));
 }
 
-export async function countServicesByCustomer(): Promise<Map<string, number>> {
+export async function countServicesByCustomer(orgId: string): Promise<Map<string, number>> {
   const rows = await sql<{ customer_id: string; count: string }[]>`
-    select customer_id, count(*) as count from velo_service_records group by customer_id
+    select customer_id, count(*) as count
+    from velo_service_records
+    where organization_id = ${orgId}
+    group by customer_id
   `;
   return new Map(rows.map((r) => [r.customer_id, Number(r.count)]));
 }
 
-export async function countServicesByBicycle(): Promise<Map<string, number>> {
+export async function countServicesByBicycle(orgId: string): Promise<Map<string, number>> {
   const rows = await sql<{ bicycle_id: string; count: string }[]>`
-    select bicycle_id, count(*) as count from velo_service_records group by bicycle_id
+    select bicycle_id, count(*) as count
+    from velo_service_records
+    where organization_id = ${orgId}
+    group by bicycle_id
   `;
   return new Map(rows.map((r) => [r.bicycle_id, Number(r.count)]));
 }
 
-export async function countServicesByStatus(): Promise<Map<string, number>> {
+export async function countServicesByStatus(orgId: string): Promise<Map<string, number>> {
   const rows = await sql<{ status: string; count: string }[]>`
-    select status, count(*) as count from velo_service_records group by status
+    select status, count(*) as count
+    from velo_service_records
+    where organization_id = ${orgId}
+    group by status
   `;
   return new Map(rows.map((r) => [r.status, Number(r.count)]));
 }
@@ -716,6 +792,7 @@ export async function countServicesByStatus(): Promise<Map<string, number>> {
 
 type ProductRow = {
   id: string;
+  organization_id: string;
   sku: string | null;
   name: string;
   category: string | null;
@@ -742,37 +819,44 @@ export function mapProduct(row: ProductRow): Product {
   };
 }
 
-export async function listProducts(): Promise<Product[]> {
+export async function listProducts(orgId: string): Promise<Product[]> {
   const rows = await sql<ProductRow[]>`
-    select * from velo_products order by name
+    select * from velo_products
+    where organization_id = ${orgId}
+    order by name
   `;
   return rows.map(mapProduct);
 }
 
-export async function listLowStockProducts(): Promise<Product[]> {
+export async function listLowStockProducts(orgId: string): Promise<Product[]> {
   const rows = await sql<ProductRow[]>`
     select * from velo_products
-    where quantity <= low_stock_threshold
+    where organization_id = ${orgId} and quantity <= low_stock_threshold
     order by quantity asc, name
   `;
   return rows.map(mapProduct);
 }
 
-export async function getProduct(id: string): Promise<Product | null> {
+export async function getProduct(orgId: string, id: string): Promise<Product | null> {
   const rows = await sql<ProductRow[]>`
-    select * from velo_products where id = ${id} limit 1
+    select * from velo_products
+    where organization_id = ${orgId} and id = ${id}
+    limit 1
   `;
   return rows[0] ? mapProduct(rows[0]) : null;
 }
 
-export async function getProductBySku(sku: string): Promise<Product | null> {
+export async function getProductBySku(orgId: string, sku: string): Promise<Product | null> {
   const rows = await sql<ProductRow[]>`
-    select * from velo_products where sku = ${sku} limit 1
+    select * from velo_products
+    where organization_id = ${orgId} and sku = ${sku}
+    limit 1
   `;
   return rows[0] ? mapProduct(rows[0]) : null;
 }
 
 export async function createProductRow(input: {
+  organizationId: string;
   sku?: string;
   name: string;
   category?: string;
@@ -782,8 +866,9 @@ export async function createProductRow(input: {
   lowStockThreshold: number;
 }): Promise<Product> {
   const rows = await sql<ProductRow[]>`
-    insert into velo_products (sku, name, category, description, unit_price, quantity, low_stock_threshold)
+    insert into velo_products (organization_id, sku, name, category, description, unit_price, quantity, low_stock_threshold)
     values (
+      ${input.organizationId},
       ${input.sku ?? null},
       ${input.name},
       ${input.category ?? null},
@@ -798,6 +883,7 @@ export async function createProductRow(input: {
 }
 
 export async function updateProductRow(
+  orgId: string,
   id: string,
   input: {
     sku?: string;
@@ -817,20 +903,21 @@ export async function updateProductRow(
       unit_price = ${input.unitPrice},
       low_stock_threshold = ${input.lowStockThreshold},
       updated_at = now()
-    where id = ${id}
+    where organization_id = ${orgId} and id = ${id}
     returning *
   `;
   return rows[0] ? mapProduct(rows[0]) : null;
 }
 
-export async function deleteProductRow(id: string): Promise<void> {
-  await sql`delete from velo_products where id = ${id}`;
+export async function deleteProductRow(orgId: string, id: string): Promise<void> {
+  await sql`delete from velo_products where organization_id = ${orgId} and id = ${id}`;
 }
 
 // ---------- Stock Movements ----------
 
 type StockMovementRow = {
   id: string;
+  organization_id: string;
   product_id: string;
   type: string;
   quantity_delta: number;
@@ -852,6 +939,7 @@ function mapStockMovement(row: StockMovementRow): StockMovement {
 }
 
 export async function createStockMovement(input: {
+  organizationId: string;
   productId: string;
   type: StockMovementType;
   quantityDelta: number;
@@ -860,8 +948,9 @@ export async function createStockMovement(input: {
 }): Promise<StockMovement> {
   const [movement] = await sql.begin(async (tx) => {
     const movements = await tx<StockMovementRow[]>`
-      insert into velo_stock_movements (product_id, type, quantity_delta, reference, note)
+      insert into velo_stock_movements (organization_id, product_id, type, quantity_delta, reference, note)
       values (
+        ${input.organizationId},
         ${input.productId},
         ${input.type},
         ${input.quantityDelta},
@@ -873,7 +962,7 @@ export async function createStockMovement(input: {
     await tx`
       update velo_products
       set quantity = quantity + ${input.quantityDelta}, updated_at = now()
-      where id = ${input.productId}
+      where organization_id = ${input.organizationId} and id = ${input.productId}
     `;
     return movements;
   });
@@ -881,23 +970,25 @@ export async function createStockMovement(input: {
 }
 
 export async function checkStockMovementExists(
+  orgId: string,
   type: StockMovementType,
   reference: string,
 ): Promise<boolean> {
   const rows = await sql<{ id: string }[]>`
     select id from velo_stock_movements
-    where type = ${type} and reference = ${reference}
+    where organization_id = ${orgId} and type = ${type} and reference = ${reference}
     limit 1
   `;
   return rows.length > 0;
 }
 
 export async function listStockMovementsByProduct(
+  orgId: string,
   productId: string,
 ): Promise<StockMovement[]> {
   const rows = await sql<StockMovementRow[]>`
     select * from velo_stock_movements
-    where product_id = ${productId}
+    where organization_id = ${orgId} and product_id = ${productId}
     order by created_at desc
   `;
   return rows.map(mapStockMovement);
@@ -936,34 +1027,31 @@ export async function listServicePartsByService(
 }
 
 export async function replaceServiceParts(
+  orgId: string,
   serviceId: string,
   parts: { productId: string; quantity: number; unitPrice: number }[],
 ): Promise<void> {
   await sql.begin(async (tx) => {
-    // Find existing parts to reverse their stock movements
     const existing = await tx<{ product_id: string; quantity: number }[]>`
       select product_id, quantity from velo_service_parts where service_id = ${serviceId}
     `;
 
-    // Delete old service_parts rows
     await tx`delete from velo_service_parts where service_id = ${serviceId}`;
 
-    // Restore stock for previously consumed parts
     for (const old of existing) {
       await tx`
         update velo_products
         set quantity = quantity + ${old.quantity}, updated_at = now()
-        where id = ${old.product_id}
+        where organization_id = ${orgId} and id = ${old.product_id}
       `;
       await tx`
-        insert into velo_stock_movements (product_id, type, quantity_delta, reference, note)
-        values (${old.product_id}, 'adjustment', ${old.quantity}, ${serviceId}, 'Корекция при редакция на сервиз')
+        insert into velo_stock_movements (organization_id, product_id, type, quantity_delta, reference, note)
+        values (${orgId}, ${old.product_id}, 'adjustment', ${old.quantity}, ${serviceId}, 'Корекция при редакция на сервиз')
       `;
     }
 
     if (parts.length === 0) return;
 
-    // Insert new service_parts and deduct stock
     for (const p of parts) {
       await tx`
         insert into velo_service_parts (service_id, product_id, quantity, unit_price)
@@ -972,11 +1060,11 @@ export async function replaceServiceParts(
       await tx`
         update velo_products
         set quantity = quantity - ${p.quantity}, updated_at = now()
-        where id = ${p.productId}
+        where organization_id = ${orgId} and id = ${p.productId}
       `;
       await tx`
-        insert into velo_stock_movements (product_id, type, quantity_delta, reference, note)
-        values (${p.productId}, 'service_use', ${-p.quantity}, ${serviceId}, 'Използвано в сервиз')
+        insert into velo_stock_movements (organization_id, product_id, type, quantity_delta, reference, note)
+        values (${orgId}, ${p.productId}, 'service_use', ${-p.quantity}, ${serviceId}, 'Използвано в сервиз')
       `;
     }
   });

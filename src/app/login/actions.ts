@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { findUserByEmail } from "@/lib/db";
+import { findUserByEmail, getOrganization } from "@/lib/db";
 import { getSession } from "@/lib/session";
 
 export async function loginAction(_prev: unknown, formData: FormData) {
@@ -23,11 +23,15 @@ export async function loginAction(_prev: unknown, formData: FormData) {
     return { error: "Невалиден email или парола" };
   }
 
+  const org = await getOrganization(user.organizationId);
+
   const session = await getSession();
   session.userId = user.id;
   session.email = user.email;
   session.name = user.name;
   session.role = user.role;
+  session.organizationId = user.organizationId;
+  session.organizationName = org?.name ?? "";
   await session.save();
 
   redirect("/");

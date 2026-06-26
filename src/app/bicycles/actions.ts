@@ -65,13 +65,13 @@ function readBase(formData: FormData) {
 }
 
 export async function createBicycle(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
 
-  const customer = await getCustomer(data.customerId);
+  const customer = await getCustomer(user.organizationId, data.customerId);
   if (!customer) throw new Error("Клиентът не съществува");
 
-  const created = await createBicycleRow(data);
+  const created = await createBicycleRow({ ...data, organizationId: user.organizationId });
 
   revalidatePath("/");
   revalidatePath("/bicycles");
@@ -80,9 +80,9 @@ export async function createBicycle(formData: FormData) {
 }
 
 export async function updateBicycle(id: string, formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
-  await updateBicycleRow(id, data);
+  await updateBicycleRow(user.organizationId, id, data);
 
   revalidatePath("/");
   revalidatePath("/bicycles");
@@ -92,8 +92,8 @@ export async function updateBicycle(id: string, formData: FormData) {
 }
 
 export async function deleteBicycle(id: string) {
-  await requireUser();
-  await deleteBicycleRow(id);
+  const user = await requireUser();
+  await deleteBicycleRow(user.organizationId, id);
   revalidatePath("/");
   revalidatePath("/bicycles");
   revalidatePath("/services");

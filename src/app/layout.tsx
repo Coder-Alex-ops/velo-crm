@@ -29,7 +29,7 @@ export default async function RootLayout({
       <body className="min-h-screen text-sm antialiased">
         {user ? (
           <>
-            <Sidebar user={user} />
+            <Sidebar user={user} organizationName={user.organizationName} />
             <main className="lg:pl-64">{children}</main>
           </>
         ) : (

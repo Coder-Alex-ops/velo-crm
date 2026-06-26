@@ -21,7 +21,7 @@ async function requireAdmin() {
 }
 
 export async function createUser(formData: FormData) {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
@@ -39,7 +39,7 @@ export async function createUser(formData: FormData) {
   if (existing) throw new Error("Потребител с този email вече съществува");
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await createUserRow({ email, passwordHash, name, role });
+  await createUserRow({ email, passwordHash, name, role, organizationId: admin.organizationId });
 
   revalidatePath("/users");
   redirect("/users");

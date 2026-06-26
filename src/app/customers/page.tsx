@@ -8,15 +8,17 @@ import {
   listCustomers,
 } from "@/lib/db";
 import { formatDate } from "@/lib/format";
+import { requireUser } from "@/lib/session";
 import { DeleteCustomerRowButton } from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersIndex() {
+  const user = await requireUser();
   const [customers, bikeCounts, serviceCounts] = await Promise.all([
-    listCustomers(),
-    countBicyclesByCustomer(),
-    countServicesByCustomer(),
+    listCustomers(user.organizationId),
+    countBicyclesByCustomer(user.organizationId),
+    countServicesByCustomer(user.organizationId),
   ]);
 
   return (

@@ -17,6 +17,7 @@ import {
   serviceTotal,
 } from "@/lib/crm";
 import type { ServiceStatus } from "@/lib/types";
+import { requireUser } from "@/lib/session";
 import { DeleteServiceRowButton } from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +27,14 @@ export default async function ServicesIndex({
 }: {
   searchParams: { status?: string };
 }) {
+  const user = await requireUser();
   const statusFilter = SERVICE_STATUSES.find(
     (s) => s.value === searchParams.status,
   )?.value as ServiceStatus | undefined;
 
   const [services, counts] = await Promise.all([
-    listServicesWithDetails(statusFilter),
-    countServicesByStatus(),
+    listServicesWithDetails(user.organizationId, statusFilter),
+    countServicesByStatus(user.organizationId),
   ]);
 
   return (

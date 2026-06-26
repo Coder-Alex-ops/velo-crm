@@ -87,14 +87,15 @@ function readBase(formData: FormData) {
 }
 
 export async function createServiceRecord(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
 
-  const bike = await getBicycle(data.bicycleId);
+  const bike = await getBicycle(user.organizationId, data.bicycleId);
   if (!bike) throw new Error("Велосипедът не съществува");
 
   const created = await createServiceRecordRow({
     ...data,
+    organizationId: user.organizationId,
     customerId: bike.customerId,
   });
 
@@ -104,13 +105,13 @@ export async function createServiceRecord(formData: FormData) {
 }
 
 export async function updateServiceRecord(id: string, formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
 
-  const bike = await getBicycle(data.bicycleId);
+  const bike = await getBicycle(user.organizationId, data.bicycleId);
   if (!bike) throw new Error("Велосипедът не съществува");
 
-  await updateServiceRecordRow(id, {
+  await updateServiceRecordRow(user.organizationId, id, {
     ...data,
     customerId: bike.customerId,
   });
@@ -122,8 +123,8 @@ export async function updateServiceRecord(id: string, formData: FormData) {
 }
 
 export async function deleteServiceRecord(id: string) {
-  await requireUser();
-  await deleteServiceRecordRow(id);
+  const user = await requireUser();
+  await deleteServiceRecordRow(user.organizationId, id);
   revalidatePath("/");
   revalidatePath("/services");
 }

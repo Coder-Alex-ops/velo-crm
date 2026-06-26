@@ -19,6 +19,7 @@ import {
   serviceStatusMeta,
   serviceTotal,
 } from "@/lib/crm";
+import { requireUser } from "@/lib/session";
 import { updateCustomer } from "../actions";
 import { DeleteCustomerButton } from "../DeleteButton";
 
@@ -29,12 +30,13 @@ export default async function EditCustomer({
 }: {
   params: { id: string };
 }) {
-  const customer = await getCustomer(params.id);
+  const user = await requireUser();
+  const customer = await getCustomer(user.organizationId, params.id);
   if (!customer) notFound();
 
   const [customerBikes, customerServices] = await Promise.all([
-    listBicyclesByCustomer(customer.id),
-    listServiceRecordsByCustomer(customer.id),
+    listBicyclesByCustomer(user.organizationId, customer.id),
+    listServiceRecordsByCustomer(user.organizationId, customer.id),
   ]);
 
   const bikesById = new Map(customerBikes.map((b) => [b.id, b]));

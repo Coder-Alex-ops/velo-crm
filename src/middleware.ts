@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
 import type { SessionData } from "@/lib/session";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/register"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

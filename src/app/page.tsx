@@ -22,13 +22,15 @@ import {
   serviceStatusMeta,
   serviceTotal,
 } from "@/lib/crm";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+  const user = await requireUser();
   const [stats, recent] = await Promise.all([
-    getDashboardStats(),
-    listServicesWithDetails(undefined, 8),
+    getDashboardStats(user.organizationId),
+    listServicesWithDetails(user.organizationId, undefined, 8),
   ]);
 
   return (

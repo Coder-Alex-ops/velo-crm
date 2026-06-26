@@ -33,11 +33,11 @@ function readBase(formData: FormData) {
 }
 
 export async function createProduct(formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
   const quantity =
     parseInt(String(formData.get("quantity") ?? "0"), 10) || 0;
-  const created = await createProductRow({ ...data, quantity });
+  const created = await createProductRow({ ...data, quantity, organizationId: user.organizationId });
 
   revalidatePath("/");
   revalidatePath("/inventory");
@@ -45,9 +45,9 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function updateProduct(id: string, formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const data = readBase(formData);
-  await updateProductRow(id, data);
+  await updateProductRow(user.organizationId, id, data);
 
   revalidatePath("/");
   revalidatePath("/inventory");
@@ -56,15 +56,15 @@ export async function updateProduct(id: string, formData: FormData) {
 }
 
 export async function deleteProduct(id: string) {
-  await requireUser();
-  await deleteProductRow(id);
+  const user = await requireUser();
+  await deleteProductRow(user.organizationId, id);
   revalidatePath("/");
   revalidatePath("/inventory");
   redirect("/inventory");
 }
 
 export async function adjustStock(productId: string, formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   const rawType = String(formData.get("adjustType") ?? "adjustment");
   const type: StockMovementType =
     rawType === "purchase" ? "purchase" : "adjustment";
@@ -74,6 +74,7 @@ export async function adjustStock(productId: string, formData: FormData) {
   if (!delta) throw new Error("Количеството не може да е 0");
 
   await createStockMovement({
+    organizationId: user.organizationId,
     productId,
     type,
     quantityDelta: delta,

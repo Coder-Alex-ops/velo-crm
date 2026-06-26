@@ -2,6 +2,7 @@ import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import { ServiceForm } from "@/components/ServiceForm";
 import { listBicycles, listCustomers } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 import { createServiceRecord } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +12,10 @@ export default async function NewService({
 }: {
   searchParams: { customerId?: string; bicycleId?: string };
 }) {
+  const user = await requireUser();
   const [customers, bicycles] = await Promise.all([
-    listCustomers(),
-    listBicycles(),
+    listCustomers(user.organizationId),
+    listBicycles(user.organizationId),
   ]);
   return (
     <>

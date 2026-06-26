@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bike } from "lucide-react";
 import { LoginForm } from "./LoginForm";
@@ -29,7 +30,13 @@ export default async function LoginPage() {
           <LoginForm />
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Нямате акаунт?{" "}
+          <Link href="/register" className="font-medium text-brand-600 hover:text-brand-700">
+            Регистрирайте се
+          </Link>
+        </p>
+        <p className="mt-3 text-center text-xs text-gray-400">
           Velo CRM · v0.2
         </p>
       </div>

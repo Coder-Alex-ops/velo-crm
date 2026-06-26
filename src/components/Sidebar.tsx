@@ -26,8 +26,10 @@ const nav: NavItem[] = [
 
 export function Sidebar({
   user,
+  organizationName,
 }: {
   user: { name: string; email: string; role: UserRole };
+  organizationName?: string;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -130,6 +132,11 @@ export function Sidebar({
                 .toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
+              {organizationName && (
+                <div className="truncate text-xs font-semibold text-brand-600">
+                  {organizationName}
+                </div>
+              )}
               <div className="truncate text-sm font-semibold text-gray-900">
                 {user.name}
               </div>

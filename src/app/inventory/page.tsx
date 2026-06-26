@@ -5,6 +5,7 @@ import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import { listLowStockProducts, listProducts } from "@/lib/db";
 import { formatEur } from "@/lib/crm";
+import { requireUser } from "@/lib/session";
 import { DeleteProductRowButton } from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +25,11 @@ export default async function InventoryIndex({
 }: {
   searchParams: { filter?: string };
 }) {
+  const user = await requireUser();
   const lowOnly = searchParams.filter === "low";
-  const products = lowOnly ? await listLowStockProducts() : await listProducts();
+  const products = lowOnly
+    ? await listLowStockProducts(user.organizationId)
+    : await listProducts(user.organizationId);
 
   return (
     <>

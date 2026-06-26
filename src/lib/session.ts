@@ -8,6 +8,8 @@ export type SessionData = {
   email?: string;
   name?: string;
   role?: UserRole;
+  organizationId?: string;
+  organizationName?: string;
 };
 
 const password = process.env.SESSION_SECRET;
@@ -34,7 +36,7 @@ export async function getSession() {
 
 export async function requireUser() {
   const session = await getSession();
-  if (!session.userId) {
+  if (!session.userId || !session.organizationId) {
     throw new Error("Unauthorized");
   }
   return {
@@ -42,16 +44,20 @@ export async function requireUser() {
     email: session.email!,
     name: session.name!,
     role: session.role!,
+    organizationId: session.organizationId,
+    organizationName: session.organizationName ?? "",
   };
 }
 
 export async function getCurrentUser() {
   const session = await getSession();
-  if (!session.userId) return null;
+  if (!session.userId || !session.organizationId) return null;
   return {
     id: session.userId,
     email: session.email!,
     name: session.name!,
     role: session.role!,
+    organizationId: session.organizationId,
+    organizationName: session.organizationName ?? "",
   };
 }

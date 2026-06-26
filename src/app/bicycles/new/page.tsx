@@ -2,6 +2,7 @@ import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import { BicycleForm } from "@/components/BicycleForm";
 import { listCustomers } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 import { createBicycle } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ export default async function NewBicycle({
 }: {
   searchParams: { customerId?: string };
 }) {
-  const customers = await listCustomers();
+  const user = await requireUser();
+  const customers = await listCustomers(user.organizationId);
   return (
     <>
       <TopBar status="Нов велосипед" />
