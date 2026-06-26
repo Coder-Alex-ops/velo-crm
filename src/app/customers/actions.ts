@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  createBicycleRow,
   createCustomerRow,
   deleteCustomerRow,
   updateCustomerRow,
@@ -36,6 +37,25 @@ export async function createCustomer(formData: FormData) {
   const user = await requireUser();
   const data = readBase(formData);
   const created = await createCustomerRow({ ...data, organizationId: user.organizationId });
+
+  const bikeBrand = String(formData.get("bike_brand") ?? "").trim();
+  const bikeModel = String(formData.get("bike_model") ?? "").trim();
+  if (bikeBrand && bikeModel) {
+    const year = Number(formData.get("bike_year")) || undefined;
+    await createBicycleRow({
+      organizationId: user.organizationId,
+      customerId: created.id,
+      brand: bikeBrand,
+      model: bikeModel,
+      year: Number.isFinite(year) ? year : undefined,
+      type: String(formData.get("bike_type") ?? "").trim() || undefined,
+      color: String(formData.get("bike_color") ?? "").trim() || undefined,
+      serialNumber: String(formData.get("bike_serial") ?? "").trim() || undefined,
+      frameSize: String(formData.get("bike_frameSize") ?? "").trim() || undefined,
+      wheelSize: String(formData.get("bike_wheelSize") ?? "").trim() || undefined,
+    });
+    revalidatePath("/bicycles");
+  }
 
   revalidatePath("/");
   revalidatePath("/customers");
