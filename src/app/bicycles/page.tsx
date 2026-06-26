@@ -2,24 +2,20 @@ import Link from "next/link";
 import { Bike, Pencil, Plus } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
-import { listBicycles, listCustomers, listServiceRecords } from "@/lib/db";
-import { bikeTypeLabel, customerFullName } from "@/lib/crm";
+import {
+  countServicesByBicycle,
+  listBicyclesWithCustomer,
+} from "@/lib/db";
+import { bikeTypeLabel } from "@/lib/crm";
 import { DeleteBicycleRowButton } from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function BicyclesIndex() {
-  const [bicycles, customers, services] = await Promise.all([
-    listBicycles(),
-    listCustomers(),
-    listServiceRecords(),
+  const [bicycles, serviceCounts] = await Promise.all([
+    listBicyclesWithCustomer(),
+    countServicesByBicycle(),
   ]);
-
-  const customersById = new Map(customers.map((c) => [c.id, c]));
-  const serviceCounts = new Map<string, number>();
-  for (const s of services) {
-    serviceCounts.set(s.bicycleId, (serviceCounts.get(s.bicycleId) ?? 0) + 1);
-  }
 
   return (
     <>
@@ -59,9 +55,7 @@ export default async function BicyclesIndex() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {bicycles.map((b) => {
-                  const customer = customersById.get(b.customerId);
-                  return (
+                {bicycles.map((b) => (
                     <tr key={b.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <Link
@@ -76,16 +70,12 @@ export default async function BicyclesIndex() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {customer ? (
-                          <Link
-                            href={`/customers/${customer.id}`}
-                            className="text-gray-700 hover:text-brand-600"
-                          >
-                            {customerFullName(customer)}
-                          </Link>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
+                        <Link
+                          href={`/customers/${b.customerId}`}
+                          className="text-gray-700 hover:text-brand-600"
+                        >
+                          {b.customerName}
+                        </Link>
                       </td>
                       <td className="px-6 py-4 text-gray-700">
                         {bikeTypeLabel(b.type ?? undefined)}
@@ -113,8 +103,7 @@ export default async function BicyclesIndex() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>

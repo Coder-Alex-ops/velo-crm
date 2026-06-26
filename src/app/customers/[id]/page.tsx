@@ -9,7 +9,6 @@ import {
   getCustomer,
   listBicyclesByCustomer,
   listServiceRecordsByCustomer,
-  listBicycles,
 } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import {
@@ -33,13 +32,12 @@ export default async function EditCustomer({
   const customer = await getCustomer(params.id);
   if (!customer) notFound();
 
-  const [customerBikes, customerServices, allBikes] = await Promise.all([
+  const [customerBikes, customerServices] = await Promise.all([
     listBicyclesByCustomer(customer.id),
     listServiceRecordsByCustomer(customer.id),
-    listBicycles(),
   ]);
 
-  const bikesById = new Map(allBikes.map((b) => [b.id, b]));
+  const bikesById = new Map(customerBikes.map((b) => [b.id, b]));
 
   const action = updateCustomer.bind(null, customer.id);
 

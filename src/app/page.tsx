@@ -12,14 +12,10 @@ import { StatCard } from "@/components/StatCard";
 import { PageHeader } from "@/components/PageHeader";
 import {
   getDashboardStats,
-  listBicycles,
-  listCustomers,
-  listServiceRecords,
+  listServicesWithDetails,
 } from "@/lib/db";
 import { formatDate, greetingForNow, todayLong } from "@/lib/format";
 import {
-  bicycleLabel,
-  customerFullName,
   formatEur,
   paymentStatusMeta,
   serviceStatusMeta,
@@ -29,16 +25,10 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const [stats, customers, bikes, services] = await Promise.all([
+  const [stats, recent] = await Promise.all([
     getDashboardStats(),
-    listCustomers(),
-    listBicycles(),
-    listServiceRecords(),
+    listServicesWithDetails(undefined, 8),
   ]);
-
-  const customersById = new Map(customers.map((c) => [c.id, c]));
-  const bikesById = new Map(bikes.map((b) => [b.id, b]));
-  const recent = services.slice(0, 8);
 
   return (
     <>
@@ -132,8 +122,6 @@ export default async function Dashboard() {
                 {recent.map((s) => {
                   const sm = serviceStatusMeta(s.status);
                   const pm = paymentStatusMeta(s.paymentStatus);
-                  const customer = customersById.get(s.customerId);
-                  const bike = bikesById.get(s.bicycleId);
                   return (
                     <li
                       key={s.id}
@@ -147,7 +135,7 @@ export default async function Dashboard() {
                           {s.workDescription.slice(0, 70) || "Сервиз"}
                         </Link>
                         <div className="mt-0.5 text-xs text-gray-500">
-                          {customerFullName(customer)} · {bicycleLabel(bike)} ·{" "}
+                          {s.customerName} · {s.bicycleName} ·{" "}
                           {formatDate(s.receivedDate)}
                         </div>
                       </div>

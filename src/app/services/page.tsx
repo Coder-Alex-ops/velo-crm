@@ -4,15 +4,12 @@ import { Pencil, Plus, Wrench } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import {
-  listBicycles,
-  listCustomers,
-  listServiceRecords,
+  countServicesByStatus,
+  listServicesWithDetails,
 } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import {
   SERVICE_STATUSES,
-  bicycleLabel,
-  customerFullName,
   formatEur,
   paymentStatusMeta,
   serviceBalance,
@@ -29,27 +26,14 @@ export default async function ServicesIndex({
 }: {
   searchParams: { status?: string };
 }) {
-  const [allServices, customers, bicycles] = await Promise.all([
-    listServiceRecords(),
-    listCustomers(),
-    listBicycles(),
-  ]);
-
-  const customersById = new Map(customers.map((c) => [c.id, c]));
-  const bikesById = new Map(bicycles.map((b) => [b.id, b]));
-
   const statusFilter = SERVICE_STATUSES.find(
     (s) => s.value === searchParams.status,
   )?.value as ServiceStatus | undefined;
 
-  const services = statusFilter
-    ? allServices.filter((s) => s.status === statusFilter)
-    : allServices;
-
-  const counts = new Map<ServiceStatus, number>();
-  for (const s of allServices) {
-    counts.set(s.status, (counts.get(s.status) ?? 0) + 1);
-  }
+  const [services, counts] = await Promise.all([
+    listServicesWithDetails(statusFilter),
+    countServicesByStatus(),
+  ]);
 
   return (
     <>
@@ -73,7 +57,7 @@ export default async function ServicesIndex({
                 : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
             )}
           >
-            Всички ({allServices.length})
+            Всички ({[...counts.values()].reduce((a, b) => a + b, 0)})
           </Link>
           {SERVICE_STATUSES.map((s) => (
             <Link
@@ -123,8 +107,6 @@ export default async function ServicesIndex({
                 {services.map((s) => {
                   const sm = serviceStatusMeta(s.status);
                   const pm = paymentStatusMeta(s.paymentStatus);
-                  const customer = customersById.get(s.customerId);
-                  const bike = bikesById.get(s.bicycleId);
                   const total = serviceTotal(s);
                   const balance = serviceBalance(s);
                   return (
@@ -140,10 +122,10 @@ export default async function ServicesIndex({
                       </td>
                       <td className="px-6 py-4 text-xs">
                         <div className="font-medium text-gray-800">
-                          {customerFullName(customer)}
+                          {s.customerName}
                         </div>
                         <div className="text-gray-500">
-                          {bicycleLabel(bike)}
+                          {s.bicycleName}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-700">

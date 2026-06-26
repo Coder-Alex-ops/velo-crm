@@ -557,12 +557,14 @@ export async function getDashboardStats(): Promise<{
     .toISOString()
     .slice(0, 10);
 
-  const [counts] = await sql<
+  const [row] = await sql<
     {
       total_customers: string;
       total_bicycles: string;
       total_services: string;
       open_services: string;
+      month_revenue: string;
+      outstanding: string;
     }[]
   >`
     select
@@ -570,30 +572,132 @@ export async function getDashboardStats(): Promise<{
       (select count(*) from velo_bicycles) as total_bicycles,
       (select count(*) from velo_service_records) as total_services,
       (select count(*) from velo_service_records
-        where status not in ('delivered', 'cancelled')) as open_services
-  `;
-
-  const [revenue] = await sql<{ month_revenue: string }[]>`
-    select coalesce(sum(greatest(0, parts_cost + labor_cost - discount)), 0) as month_revenue
-    from velo_service_records
-    where received_date >= ${monthStart}
-  `;
-
-  const [out] = await sql<{ outstanding: string }[]>`
-    select coalesce(sum(
-      greatest(0,
-        greatest(0, parts_cost + labor_cost - discount) - paid_amount
-      )
-    ), 0) as outstanding
-    from velo_service_records
+        where status not in ('delivered', 'cancelled')) as open_services,
+      coalesce((
+        select sum(greatest(0, parts_cost + labor_cost - discount))
+        from velo_service_records
+        where received_date >= ${monthStart}
+      ), 0) as month_revenue,
+      coalesce((
+        select sum(greatest(0, greatest(0, parts_cost + labor_cost - discount) - paid_amount))
+        from velo_service_records
+      ), 0) as outstanding
   `;
 
   return {
-    totalCustomers: Number(counts.total_customers),
-    totalBicycles: Number(counts.total_bicycles),
-    totalServices: Number(counts.total_services),
-    openServices: Number(counts.open_services),
-    monthRevenue: Number(revenue.month_revenue),
-    outstanding: Number(out.outstanding),
+    totalCustomers: Number(row.total_customers),
+    totalBicycles: Number(row.total_bicycles),
+    totalServices: Number(row.total_services),
+    openServices: Number(row.open_services),
+    monthRevenue: Number(row.month_revenue),
+    outstanding: Number(row.outstanding),
   };
+}
+
+// ---------- Enriched queries for list pages ----------
+
+type ServiceWithDetailsRow = ServiceRow & {
+  c_first: string | null;
+  c_last: string | null;
+  b_brand: string | null;
+  b_model: string | null;
+  b_year: number | null;
+};
+
+export type ServiceWithDetails = ServiceRecord & {
+  customerName: string;
+  bicycleName: string;
+};
+
+function formatCustomerName(first: string | null, last: string | null): string {
+  return [first, last].filter(Boolean).join(" ").trim() || "—";
+}
+
+function formatBicycleName(
+  brand: string | null,
+  model: string | null,
+  year: number | null,
+): string {
+  const base = [brand, model].filter(Boolean).join(" ") || "Велосипед";
+  return year ? `${base} (${year})` : base;
+}
+
+function mapServiceWithDetails(row: ServiceWithDetailsRow): ServiceWithDetails {
+  return {
+    ...mapService(row),
+    customerName: formatCustomerName(row.c_first, row.c_last),
+    bicycleName: formatBicycleName(row.b_brand, row.b_model, row.b_year),
+  };
+}
+
+export async function listServicesWithDetails(
+  status?: ServiceStatus,
+  limit?: number,
+): Promise<ServiceWithDetails[]> {
+  const rows = await sql<ServiceWithDetailsRow[]>`
+    select
+      s.*,
+      c.first_name as c_first,
+      c.last_name  as c_last,
+      b.brand      as b_brand,
+      b.model      as b_model,
+      b.year       as b_year
+    from velo_service_records s
+    left join velo_customers c on c.id = s.customer_id
+    left join velo_bicycles  b on b.id = s.bicycle_id
+    ${status ? sql`where s.status = ${status}` : sql``}
+    order by s.received_date desc, s.created_at desc
+    ${limit != null ? sql`limit ${limit}` : sql``}
+  `;
+  return rows.map(mapServiceWithDetails);
+}
+
+type BicycleWithCustomerRow = BicycleRow & {
+  c_first: string | null;
+  c_last: string | null;
+};
+
+export type BicycleWithCustomer = Bicycle & {
+  customerName: string;
+};
+
+export async function listBicyclesWithCustomer(): Promise<BicycleWithCustomer[]> {
+  const rows = await sql<BicycleWithCustomerRow[]>`
+    select b.*, c.first_name as c_first, c.last_name as c_last
+    from velo_bicycles b
+    left join velo_customers c on c.id = b.customer_id
+    order by b.brand, b.model
+  `;
+  return rows.map((row) => ({
+    ...mapBicycle(row),
+    customerName: formatCustomerName(row.c_first, row.c_last),
+  }));
+}
+
+export async function countBicyclesByCustomer(): Promise<Map<string, number>> {
+  const rows = await sql<{ customer_id: string; count: string }[]>`
+    select customer_id, count(*) as count from velo_bicycles group by customer_id
+  `;
+  return new Map(rows.map((r) => [r.customer_id, Number(r.count)]));
+}
+
+export async function countServicesByCustomer(): Promise<Map<string, number>> {
+  const rows = await sql<{ customer_id: string; count: string }[]>`
+    select customer_id, count(*) as count from velo_service_records group by customer_id
+  `;
+  return new Map(rows.map((r) => [r.customer_id, Number(r.count)]));
+}
+
+export async function countServicesByBicycle(): Promise<Map<string, number>> {
+  const rows = await sql<{ bicycle_id: string; count: string }[]>`
+    select bicycle_id, count(*) as count from velo_service_records group by bicycle_id
+  `;
+  return new Map(rows.map((r) => [r.bicycle_id, Number(r.count)]));
+}
+
+export async function countServicesByStatus(): Promise<Map<string, number>> {
+  const rows = await sql<{ status: string; count: string }[]>`
+    select status, count(*) as count from velo_service_records group by status
+  `;
+  return new Map(rows.map((r) => [r.status, Number(r.count)]));
 }

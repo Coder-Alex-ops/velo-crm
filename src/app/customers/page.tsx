@@ -2,27 +2,22 @@ import Link from "next/link";
 import { Bike, Mail, Pencil, Phone, Plus, UserCircle } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
-import { listBicycles, listCustomers, listServiceRecords } from "@/lib/db";
+import {
+  countBicyclesByCustomer,
+  countServicesByCustomer,
+  listCustomers,
+} from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { DeleteCustomerRowButton } from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersIndex() {
-  const [customers, bicycles, services] = await Promise.all([
+  const [customers, bikeCounts, serviceCounts] = await Promise.all([
     listCustomers(),
-    listBicycles(),
-    listServiceRecords(),
+    countBicyclesByCustomer(),
+    countServicesByCustomer(),
   ]);
-
-  const bikeCounts = new Map<string, number>();
-  for (const b of bicycles) {
-    bikeCounts.set(b.customerId, (bikeCounts.get(b.customerId) ?? 0) + 1);
-  }
-  const serviceCounts = new Map<string, number>();
-  for (const s of services) {
-    serviceCounts.set(s.customerId, (serviceCounts.get(s.customerId) ?? 0) + 1);
-  }
 
   return (
     <>
