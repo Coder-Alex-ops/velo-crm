@@ -2,6 +2,14 @@ import Link from "next/link";
 import clsx from "clsx";
 import type { LucideIcon } from "lucide-react";
 
+const toneClasses: Record<string, { icon: string; bar: string }> = {
+  brand: { icon: "text-brand-500", bar: "bg-brand-500" },
+  amber: { icon: "text-amber-500", bar: "bg-amber-500" },
+  blue: { icon: "text-blue-500", bar: "bg-blue-500" },
+  green: { icon: "text-emerald-500", bar: "bg-emerald-500" },
+  red: { icon: "text-red-500", bar: "bg-red-500" },
+};
+
 export function StatCard({
   label,
   value,
@@ -17,41 +25,33 @@ export function StatCard({
   tone?: "brand" | "amber" | "blue" | "green" | "red";
   href?: string;
 }) {
-  const tones: Record<string, string> = {
-    brand: "bg-brand-100 text-brand-600",
-    amber: "bg-amber-100 text-amber-600",
-    blue: "bg-blue-100 text-blue-600",
-    green: "bg-green-100 text-green-600",
-    red: "bg-red-100 text-red-600",
-  };
+  const t = toneClasses[tone];
 
   const inner = (
-    <div className="flex items-start justify-between">
-      <div>
-        <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          {label}
+    <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+      <div className={clsx("absolute left-0 top-0 h-full w-1 rounded-l-xl", t.bar)} />
+      <div className="flex items-start justify-between pl-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            {label}
+          </p>
+          <p className="mt-2 text-3xl font-bold tabular-nums text-zinc-900 leading-none">
+            {value}
+          </p>
+          {hint && (
+            <p className="mt-1.5 text-xs text-zinc-400">{hint}</p>
+          )}
         </div>
-        <div className="mt-3 text-2xl font-bold text-gray-900">{value}</div>
-        {hint && <div className="mt-1 text-xs text-gray-500">{hint}</div>}
-      </div>
-      <div
-        className={clsx(
-          "flex h-11 w-11 items-center justify-center rounded-xl",
-          tones[tone],
-        )}
-      >
-        <Icon className="h-5 w-5" />
+        <div className={clsx("shrink-0 ml-3", t.icon)}>
+          <Icon className="h-6 w-6" />
+        </div>
       </div>
     </div>
   );
 
   if (href) {
-    return (
-      <Link href={href} className="card block p-5 hover:shadow-md transition-shadow">
-        {inner}
-      </Link>
-    );
+    return <Link href={href} className="block">{inner}</Link>;
   }
 
-  return <div className="card p-5">{inner}</div>;
+  return inner;
 }

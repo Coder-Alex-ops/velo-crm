@@ -47,12 +47,19 @@ export function Sidebar({
     (item) => !item.adminOnly || user.role === "admin",
   );
 
+  const initials = user.name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed left-3 top-3 z-30 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-card lg:hidden"
+        className="fixed left-3 top-3 z-30 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-surface-900 text-zinc-400 shadow-md lg:hidden"
         aria-label="Отвори меню"
       >
         <Menu className="h-5 w-5" />
@@ -60,7 +67,7 @@ export function Sidebar({
 
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
           aria-hidden
         />
@@ -68,37 +75,47 @@ export function Sidebar({
 
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-200",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-surface-950 transition-transform duration-200",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 px-6">
+        {/* Logo */}
+        <div className="flex h-16 shrink-0 items-center justify-between px-5 border-b border-surface-800">
           <Link
             href="/"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2.5"
             onClick={() => setOpen(false)}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-white">
               <Bike className="h-4 w-4" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">
-              <span className="text-gray-900">Velo</span>
-              <span className="text-brand-600">CRM</span>
+            <span className="text-lg font-bold tracking-tight text-white">
+              Velo<span className="text-brand-400">CRM</span>
             </span>
           </Link>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 lg:hidden"
+            className="rounded-md p-1.5 text-zinc-500 hover:text-zinc-300 lg:hidden"
             aria-label="Затвори меню"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <div className="space-y-1">
+        {/* Org name */}
+        {organizationName && (
+          <div className="px-5 pt-4 pb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+              {organizationName}
+            </span>
+          </div>
+        )}
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          <div className="space-y-0.5">
             {visibleNav.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -107,40 +124,39 @@ export function Sidebar({
                   key={item.href}
                   href={item.href}
                   className={clsx(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     active
-                      ? "bg-brand-100 text-brand-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                      ? "bg-surface-800 text-white"
+                      : "text-zinc-400 hover:bg-surface-900 hover:text-zinc-200",
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon
+                    className={clsx(
+                      "h-4 w-4 shrink-0",
+                      active ? "text-brand-400" : "text-zinc-500",
+                    )}
+                  />
                   <span>{item.label}</span>
+                  {active && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand-400" />
+                  )}
                 </Link>
               );
             })}
           </div>
         </nav>
 
-        <div className="border-t border-gray-200 p-3">
+        {/* User */}
+        <div className="border-t border-surface-800 p-3">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
-              {user.name
-                .split(" ")
-                .map((p) => p[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase()}
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-xs font-bold text-brand-400">
+              {initials}
             </div>
             <div className="min-w-0 flex-1">
-              {organizationName && (
-                <div className="truncate text-xs font-semibold text-brand-600">
-                  {organizationName}
-                </div>
-              )}
-              <div className="truncate text-sm font-semibold text-gray-900">
+              <div className="truncate text-sm font-semibold text-white">
                 {user.name}
               </div>
-              <div className="truncate text-xs text-gray-500">
+              <div className="truncate text-xs text-zinc-500">
                 {user.role === "admin" ? "Администратор" : "Механик"}
               </div>
             </div>
