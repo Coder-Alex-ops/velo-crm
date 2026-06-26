@@ -6,6 +6,7 @@ import {
   createServiceRecordRow,
   deleteServiceRecordRow,
   getBicycle,
+  replaceServiceLaborItems,
   updateServiceRecordRow,
 } from "@/lib/db";
 import { computePaymentStatus } from "@/lib/crm";
@@ -86,9 +87,26 @@ function readBase(formData: FormData) {
   };
 }
 
+function readLaborItems(
+  formData: FormData,
+): { name: string; price: number; sortOrder: number }[] {
+  const count = Number(formData.get("labor_count") ?? 0);
+  const items: { name: string; price: number; sortOrder: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const name = String(formData.get(`labor_name_${i}`) ?? "").trim();
+    const price = parseMoney(
+      String(formData.get(`labor_price_${i}`) ?? ""),
+      `Услуга ${i + 1}`,
+    );
+    if (name) items.push({ name, price, sortOrder: i });
+  }
+  return items;
+}
+
 export async function createServiceRecord(formData: FormData) {
   const user = await requireUser();
   const data = readBase(formData);
+  const laborItems = readLaborItems(formData);
 
   const bike = await getBicycle(user.organizationId, data.bicycleId);
   if (!bike) throw new Error("Велосипедът не съществува");
@@ -99,6 +117,10 @@ export async function createServiceRecord(formData: FormData) {
     customerId: bike.customerId,
   });
 
+  if (laborItems.length > 0) {
+    await replaceServiceLaborItems(created.id, laborItems);
+  }
+
   revalidatePath("/");
   revalidatePath("/services");
   redirect(`/services/${created.id}`);
@@ -107,6 +129,7 @@ export async function createServiceRecord(formData: FormData) {
 export async function updateServiceRecord(id: string, formData: FormData) {
   const user = await requireUser();
   const data = readBase(formData);
+  const laborItems = readLaborItems(formData);
 
   const bike = await getBicycle(user.organizationId, data.bicycleId);
   if (!bike) throw new Error("Велосипедът не съществува");
@@ -115,6 +138,8 @@ export async function updateServiceRecord(id: string, formData: FormData) {
     ...data,
     customerId: bike.customerId,
   });
+
+  await replaceServiceLaborItems(id, laborItems);
 
   revalidatePath("/");
   revalidatePath("/services");

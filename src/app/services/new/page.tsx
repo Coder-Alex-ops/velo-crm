@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import { ServiceForm } from "@/components/ServiceForm";
-import { listBicycles, listCustomers } from "@/lib/db";
+import { listBicycles, listCustomers, listServiceCatalog } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { createServiceRecord } from "../actions";
 
@@ -13,9 +13,10 @@ export default async function NewService({
   searchParams: { customerId?: string; bicycleId?: string };
 }) {
   const user = await requireUser();
-  const [customers, bicycles] = await Promise.all([
+  const [customers, bicycles, catalogItems] = await Promise.all([
     listCustomers(user.organizationId),
     listBicycles(user.organizationId),
+    listServiceCatalog(user.organizationId),
   ]);
   return (
     <>
@@ -28,6 +29,7 @@ export default async function NewService({
         <ServiceForm
           customers={customers}
           bicycles={bicycles}
+          catalogItems={catalogItems}
           defaultCustomerId={searchParams.customerId}
           defaultBicycleId={searchParams.bicycleId}
           action={createServiceRecord}

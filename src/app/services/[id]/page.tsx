@@ -2,7 +2,13 @@ import { notFound } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { PageHeader } from "@/components/PageHeader";
 import { ServiceForm } from "@/components/ServiceForm";
-import { getServiceRecord, listBicycles, listCustomers } from "@/lib/db";
+import {
+  getServiceRecord,
+  listBicycles,
+  listCustomers,
+  listServiceCatalog,
+  listServiceLaborItems,
+} from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { updateServiceRecord } from "../actions";
 import { DeleteServiceButton } from "../DeleteButton";
@@ -18,9 +24,11 @@ export default async function EditService({
   const record = await getServiceRecord(user.organizationId, params.id);
   if (!record) notFound();
 
-  const [customers, bicycles] = await Promise.all([
+  const [customers, bicycles, catalogItems, laborItems] = await Promise.all([
     listCustomers(user.organizationId),
     listBicycles(user.organizationId),
+    listServiceCatalog(user.organizationId),
+    listServiceLaborItems(params.id),
   ]);
 
   const action = updateServiceRecord.bind(null, record.id);
@@ -38,6 +46,8 @@ export default async function EditService({
           record={record}
           customers={customers}
           bicycles={bicycles}
+          catalogItems={catalogItems}
+          laborItems={laborItems}
           action={action}
           submitLabel="Запази промените"
         />

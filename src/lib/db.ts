@@ -7,6 +7,8 @@ import type {
   PaymentStatus,
   Product,
   ProductCategory,
+  ServiceCatalogItem,
+  ServiceLaborItem,
   ServicePart,
   ServiceRecord,
   ServiceStatus,
@@ -979,6 +981,123 @@ export async function createStockMovement(input: {
     return movements;
   });
   return mapStockMovement(movement);
+}
+
+// ---------- Service Catalog ----------
+
+type ServiceCatalogRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  default_price: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: Date;
+  updated_at: Date;
+};
+
+function mapServiceCatalogItem(row: ServiceCatalogRow): ServiceCatalogItem {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    name: row.name,
+    defaultPrice: Number(row.default_price),
+    isActive: row.is_active,
+    sortOrder: row.sort_order,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+export async function listServiceCatalog(orgId: string): Promise<ServiceCatalogItem[]> {
+  const rows = await sql<ServiceCatalogRow[]>`
+    select * from velo_service_catalog
+    where organization_id = ${orgId}
+    order by sort_order, name
+  `;
+  return rows.map(mapServiceCatalogItem);
+}
+
+export async function createServiceCatalogItem(input: {
+  organizationId: string;
+  name: string;
+  defaultPrice: number;
+  sortOrder?: number;
+}): Promise<ServiceCatalogItem> {
+  const rows = await sql<ServiceCatalogRow[]>`
+    insert into velo_service_catalog (organization_id, name, default_price, sort_order)
+    values (${input.organizationId}, ${input.name}, ${input.defaultPrice}, ${input.sortOrder ?? 0})
+    returning *
+  `;
+  return mapServiceCatalogItem(rows[0]);
+}
+
+export async function updateServiceCatalogItem(
+  orgId: string,
+  id: string,
+  input: { name: string; defaultPrice: number; isActive: boolean; sortOrder: number },
+): Promise<ServiceCatalogItem | null> {
+  const rows = await sql<ServiceCatalogRow[]>`
+    update velo_service_catalog set
+      name = ${input.name},
+      default_price = ${input.defaultPrice},
+      is_active = ${input.isActive},
+      sort_order = ${input.sortOrder},
+      updated_at = now()
+    where organization_id = ${orgId} and id = ${id}
+    returning *
+  `;
+  return rows[0] ? mapServiceCatalogItem(rows[0]) : null;
+}
+
+export async function deleteServiceCatalogItem(orgId: string, id: string): Promise<void> {
+  await sql`delete from velo_service_catalog where organization_id = ${orgId} and id = ${id}`;
+}
+
+// ---------- Service Labor Items ----------
+
+type ServiceLaborItemRow = {
+  id: string;
+  service_id: string;
+  name: string;
+  price: string;
+  sort_order: number;
+  created_at: Date;
+};
+
+function mapServiceLaborItem(row: ServiceLaborItemRow): ServiceLaborItem {
+  return {
+    id: row.id,
+    serviceId: row.service_id,
+    name: row.name,
+    price: Number(row.price),
+    sortOrder: row.sort_order,
+    createdAt: iso(row.created_at),
+  };
+}
+
+export async function listServiceLaborItems(serviceId: string): Promise<ServiceLaborItem[]> {
+  const rows = await sql<ServiceLaborItemRow[]>`
+    select * from velo_service_labor_items
+    where service_id = ${serviceId}
+    order by sort_order, created_at
+  `;
+  return rows.map(mapServiceLaborItem);
+}
+
+export async function replaceServiceLaborItems(
+  serviceId: string,
+  items: { name: string; price: number; sortOrder: number }[],
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`delete from velo_service_labor_items where service_id = ${serviceId}`;
+    for (const item of items) {
+      await tx`
+        insert into velo_service_labor_items (service_id, name, price, sort_order)
+        values (${serviceId}, ${item.name}, ${item.price}, ${item.sortOrder})
+      `;
+    }
+  });
 }
 
 export async function checkStockMovementExists(

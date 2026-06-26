@@ -133,3 +133,23 @@ export type ServiceRecord = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ServiceCatalogItem = {
+  id: string;
+  organizationId: string;
+  name: string;
+  defaultPrice: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceLaborItem = {
+  id: string;
+  serviceId: string;
+  name: string;
+  price: number;
+  sortOrder: number;
+  createdAt: string;
+};

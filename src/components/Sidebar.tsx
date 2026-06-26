@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bike, Gauge, Menu, Package, UserCircle, Users, Wrench, X } from "lucide-react";
+import { Bike, Gauge, ListOrdered, Menu, Package, UserCircle, Users, Wrench, X } from "lucide-react";
 import clsx from "clsx";
 import { LogoutButton } from "./LogoutButton";
 import type { UserRole } from "@/lib/types";
@@ -19,7 +19,8 @@ const nav: NavItem[] = [
   { href: "/", label: "Табло", icon: Gauge },
   { href: "/customers", label: "Клиенти", icon: UserCircle },
   { href: "/bicycles", label: "Велосипеди", icon: Bike },
-  { href: "/services", label: "Сервизи", icon: Wrench },
+  { href: "/services", label: "Поръчки", icon: Wrench },
+  { href: "/services/catalog", label: "Ценоразпис", icon: ListOrdered, adminOnly: true },
   { href: "/inventory", label: "Склад", icon: Package },
   { href: "/users", label: "Потребители", icon: Users, adminOnly: true },
 ];
@@ -40,7 +41,13 @@ export function Sidebar({
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
-    return pathname === href || pathname.startsWith(`${href}/`);
+    // Pick the longest matching nav href so /services doesn't highlight when on /services/catalog
+    const longestMatch = nav
+      .filter((item) =>
+        pathname === item.href || pathname.startsWith(`${item.href}/`),
+      )
+      .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+    return href === longestMatch;
   };
 
   const visibleNav = nav.filter(
