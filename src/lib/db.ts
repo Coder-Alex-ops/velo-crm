@@ -16,30 +16,42 @@ import type {
   UserRole,
 } from "./types";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL environment variable is not set. Configure it with the Supabase Transaction Pooler connection string.",
-  );
-}
-
 declare global {
   // eslint-disable-next-line no-var
   var __velo_sql: ReturnType<typeof postgres> | undefined;
 }
 
-export const sql =
-  global.__velo_sql ??
-  postgres(connectionString, {
+function getDb(): ReturnType<typeof postgres> {
+  if (global.__velo_sql) return global.__velo_sql;
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL environment variable is not set. Configure it with the Supabase Transaction Pooler connection string.",
+    );
+  }
+  const instance = postgres(connectionString, {
     prepare: false,
     max: 10,
     idle_timeout: 20,
     connect_timeout: 10,
   });
-
-if (process.env.NODE_ENV !== "production") {
-  global.__velo_sql = sql;
+  if (process.env.NODE_ENV !== "production") {
+    global.__velo_sql = instance;
+  }
+  return instance;
 }
+
+export const sql: ReturnType<typeof postgres> = new Proxy(
+  (() => {}) as unknown as ReturnType<typeof postgres>,
+  {
+    apply(_t, thisArg, args) {
+      return Reflect.apply(getDb() as unknown as Function, thisArg, args);
+    },
+    get(_t, prop) {
+      return (getDb() as unknown as Record<string, unknown>)[prop as string];
+    },
+  },
+);
 
 type OrganizationRow = {
   id: string;
