@@ -3,6 +3,7 @@ import clsx from "clsx";
 import {
   Bike,
   CircleDollarSign,
+  Package,
   Plus,
   UserCircle,
   Wrench,
@@ -58,7 +59,7 @@ export default async function Dashboard() {
           }
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <StatCard
             label="Клиенти"
             value={stats.totalCustomers}
@@ -90,6 +91,14 @@ export default async function Dashboard() {
             hint="Неплатени остатъци"
             icon={CircleDollarSign}
             tone="amber"
+          />
+          <StatCard
+            label="Ниска наличност"
+            value={stats.lowStockCount}
+            hint={stats.lowStockCount > 0 ? "Под минимума" : "Всичко е налично"}
+            icon={Package}
+            tone={stats.lowStockCount > 0 ? "red" : "green"}
+            href="/inventory?filter=low"
           />
         </div>
 

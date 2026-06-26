@@ -4,8 +4,13 @@ import type {
   Bicycle,
   Customer,
   PaymentStatus,
+  Product,
+  ProductCategory,
+  ServicePart,
   ServiceRecord,
   ServiceStatus,
+  StockMovement,
+  StockMovementType,
   User,
   UserRole,
 } from "./types";
@@ -548,6 +553,7 @@ export async function getDashboardStats(): Promise<{
   openServices: number;
   monthRevenue: number;
   outstanding: number;
+  lowStockCount: number;
 }> {
   const monthStart = new Date(
     new Date().getFullYear(),
@@ -565,6 +571,7 @@ export async function getDashboardStats(): Promise<{
       open_services: string;
       month_revenue: string;
       outstanding: string;
+      low_stock_count: string;
     }[]
   >`
     select
@@ -581,7 +588,9 @@ export async function getDashboardStats(): Promise<{
       coalesce((
         select sum(greatest(0, greatest(0, parts_cost + labor_cost - discount) - paid_amount))
         from velo_service_records
-      ), 0) as outstanding
+      ), 0) as outstanding,
+      (select count(*) from velo_products
+        where quantity <= low_stock_threshold) as low_stock_count
   `;
 
   return {
@@ -591,6 +600,7 @@ export async function getDashboardStats(): Promise<{
     openServices: Number(row.open_services),
     monthRevenue: Number(row.month_revenue),
     outstanding: Number(row.outstanding),
+    lowStockCount: Number(row.low_stock_count),
   };
 }
 
@@ -700,4 +710,274 @@ export async function countServicesByStatus(): Promise<Map<string, number>> {
     select status, count(*) as count from velo_service_records group by status
   `;
   return new Map(rows.map((r) => [r.status, Number(r.count)]));
+}
+
+// ---------- Products ----------
+
+type ProductRow = {
+  id: string;
+  sku: string | null;
+  name: string;
+  category: string | null;
+  description: string | null;
+  unit_price: string;
+  quantity: number;
+  low_stock_threshold: number;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export function mapProduct(row: ProductRow): Product {
+  return {
+    id: row.id,
+    sku: row.sku,
+    name: row.name,
+    category: row.category as ProductCategory | null,
+    description: row.description,
+    unitPrice: Number(row.unit_price),
+    quantity: row.quantity,
+    lowStockThreshold: row.low_stock_threshold,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+export async function listProducts(): Promise<Product[]> {
+  const rows = await sql<ProductRow[]>`
+    select * from velo_products order by name
+  `;
+  return rows.map(mapProduct);
+}
+
+export async function listLowStockProducts(): Promise<Product[]> {
+  const rows = await sql<ProductRow[]>`
+    select * from velo_products
+    where quantity <= low_stock_threshold
+    order by quantity asc, name
+  `;
+  return rows.map(mapProduct);
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
+  const rows = await sql<ProductRow[]>`
+    select * from velo_products where id = ${id} limit 1
+  `;
+  return rows[0] ? mapProduct(rows[0]) : null;
+}
+
+export async function getProductBySku(sku: string): Promise<Product | null> {
+  const rows = await sql<ProductRow[]>`
+    select * from velo_products where sku = ${sku} limit 1
+  `;
+  return rows[0] ? mapProduct(rows[0]) : null;
+}
+
+export async function createProductRow(input: {
+  sku?: string;
+  name: string;
+  category?: string;
+  description?: string;
+  unitPrice: number;
+  quantity: number;
+  lowStockThreshold: number;
+}): Promise<Product> {
+  const rows = await sql<ProductRow[]>`
+    insert into velo_products (sku, name, category, description, unit_price, quantity, low_stock_threshold)
+    values (
+      ${input.sku ?? null},
+      ${input.name},
+      ${input.category ?? null},
+      ${input.description ?? null},
+      ${input.unitPrice},
+      ${input.quantity},
+      ${input.lowStockThreshold}
+    )
+    returning *
+  `;
+  return mapProduct(rows[0]);
+}
+
+export async function updateProductRow(
+  id: string,
+  input: {
+    sku?: string;
+    name: string;
+    category?: string;
+    description?: string;
+    unitPrice: number;
+    lowStockThreshold: number;
+  },
+): Promise<Product | null> {
+  const rows = await sql<ProductRow[]>`
+    update velo_products set
+      sku = ${input.sku ?? null},
+      name = ${input.name},
+      category = ${input.category ?? null},
+      description = ${input.description ?? null},
+      unit_price = ${input.unitPrice},
+      low_stock_threshold = ${input.lowStockThreshold},
+      updated_at = now()
+    where id = ${id}
+    returning *
+  `;
+  return rows[0] ? mapProduct(rows[0]) : null;
+}
+
+export async function deleteProductRow(id: string): Promise<void> {
+  await sql`delete from velo_products where id = ${id}`;
+}
+
+// ---------- Stock Movements ----------
+
+type StockMovementRow = {
+  id: string;
+  product_id: string;
+  type: string;
+  quantity_delta: number;
+  reference: string | null;
+  note: string | null;
+  created_at: Date;
+};
+
+function mapStockMovement(row: StockMovementRow): StockMovement {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    type: row.type as StockMovementType,
+    quantityDelta: row.quantity_delta,
+    reference: row.reference,
+    note: row.note,
+    createdAt: iso(row.created_at),
+  };
+}
+
+export async function createStockMovement(input: {
+  productId: string;
+  type: StockMovementType;
+  quantityDelta: number;
+  reference?: string;
+  note?: string;
+}): Promise<StockMovement> {
+  const [movement] = await sql.begin(async (tx) => {
+    const movements = await tx<StockMovementRow[]>`
+      insert into velo_stock_movements (product_id, type, quantity_delta, reference, note)
+      values (
+        ${input.productId},
+        ${input.type},
+        ${input.quantityDelta},
+        ${input.reference ?? null},
+        ${input.note ?? null}
+      )
+      returning *
+    `;
+    await tx`
+      update velo_products
+      set quantity = quantity + ${input.quantityDelta}, updated_at = now()
+      where id = ${input.productId}
+    `;
+    return movements;
+  });
+  return mapStockMovement(movement);
+}
+
+export async function checkStockMovementExists(
+  type: StockMovementType,
+  reference: string,
+): Promise<boolean> {
+  const rows = await sql<{ id: string }[]>`
+    select id from velo_stock_movements
+    where type = ${type} and reference = ${reference}
+    limit 1
+  `;
+  return rows.length > 0;
+}
+
+export async function listStockMovementsByProduct(
+  productId: string,
+): Promise<StockMovement[]> {
+  const rows = await sql<StockMovementRow[]>`
+    select * from velo_stock_movements
+    where product_id = ${productId}
+    order by created_at desc
+  `;
+  return rows.map(mapStockMovement);
+}
+
+// ---------- Service Parts ----------
+
+type ServicePartRow = {
+  id: string;
+  service_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: string;
+  created_at: Date;
+};
+
+function mapServicePart(row: ServicePartRow): ServicePart {
+  return {
+    id: row.id,
+    serviceId: row.service_id,
+    productId: row.product_id,
+    quantity: row.quantity,
+    unitPrice: Number(row.unit_price),
+    createdAt: iso(row.created_at),
+  };
+}
+
+export async function listServicePartsByService(
+  serviceId: string,
+): Promise<ServicePart[]> {
+  const rows = await sql<ServicePartRow[]>`
+    select * from velo_service_parts where service_id = ${serviceId}
+    order by created_at
+  `;
+  return rows.map(mapServicePart);
+}
+
+export async function replaceServiceParts(
+  serviceId: string,
+  parts: { productId: string; quantity: number; unitPrice: number }[],
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    // Find existing parts to reverse their stock movements
+    const existing = await tx<{ product_id: string; quantity: number }[]>`
+      select product_id, quantity from velo_service_parts where service_id = ${serviceId}
+    `;
+
+    // Delete old service_parts rows
+    await tx`delete from velo_service_parts where service_id = ${serviceId}`;
+
+    // Restore stock for previously consumed parts
+    for (const old of existing) {
+      await tx`
+        update velo_products
+        set quantity = quantity + ${old.quantity}, updated_at = now()
+        where id = ${old.product_id}
+      `;
+      await tx`
+        insert into velo_stock_movements (product_id, type, quantity_delta, reference, note)
+        values (${old.product_id}, 'adjustment', ${old.quantity}, ${serviceId}, 'Корекция при редакция на сервиз')
+      `;
+    }
+
+    if (parts.length === 0) return;
+
+    // Insert new service_parts and deduct stock
+    for (const p of parts) {
+      await tx`
+        insert into velo_service_parts (service_id, product_id, quantity, unit_price)
+        values (${serviceId}, ${p.productId}, ${p.quantity}, ${p.unitPrice})
+      `;
+      await tx`
+        update velo_products
+        set quantity = quantity - ${p.quantity}, updated_at = now()
+        where id = ${p.productId}
+      `;
+      await tx`
+        insert into velo_stock_movements (product_id, type, quantity_delta, reference, note)
+        values (${p.productId}, 'service_use', ${-p.quantity}, ${serviceId}, 'Използвано в сервиз')
+      `;
+    }
+  });
 }

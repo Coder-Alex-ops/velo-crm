@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bike, Gauge, Menu, UserCircle, Users, Wrench, X } from "lucide-react";
+import { Bike, Gauge, Menu, Package, UserCircle, Users, Wrench, X } from "lucide-react";
 import clsx from "clsx";
 import { LogoutButton } from "./LogoutButton";
 import type { UserRole } from "@/lib/types";
@@ -20,6 +20,7 @@ const nav: NavItem[] = [
   { href: "/customers", label: "Клиенти", icon: UserCircle },
   { href: "/bicycles", label: "Велосипеди", icon: Bike },
   { href: "/services", label: "Сервизи", icon: Wrench },
+  { href: "/inventory", label: "Склад", icon: Package },
   { href: "/users", label: "Потребители", icon: Users, adminOnly: true },
 ];
 

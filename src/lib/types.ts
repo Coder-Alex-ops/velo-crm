@@ -59,6 +59,53 @@ export type ServiceStatus =
 
 export type PaymentStatus = "unpaid" | "partial" | "paid";
 
+export type ProductCategory =
+  | "chain"
+  | "cassette"
+  | "tire"
+  | "brake"
+  | "cable"
+  | "accessory"
+  | "other";
+
+export type Product = {
+  id: string;
+  sku?: string | null;
+  name: string;
+  category?: ProductCategory | null;
+  description?: string | null;
+  unitPrice: number;
+  quantity: number;
+  lowStockThreshold: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StockMovementType =
+  | "pos_sale"
+  | "service_use"
+  | "purchase"
+  | "adjustment";
+
+export type StockMovement = {
+  id: string;
+  productId: string;
+  type: StockMovementType;
+  quantityDelta: number;
+  reference?: string | null;
+  note?: string | null;
+  createdAt: string;
+};
+
+export type ServicePart = {
+  id: string;
+  serviceId: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  createdAt: string;
+};
+
 export type ServiceRecord = {
   id: string;
   bicycleId: string;
